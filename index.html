@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>hormone webhook</title>
+  <style>
+    body {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: #313244;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      width: 300px;
+      text-align: center;
+      transition: background 1s ease;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+    input, select {
+      background: #45475a;
+      color: #cdd6f4;
+    }
+    button {
+      background: #89b4fa;
+      color: #1e1e2e;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #74c7ec;
+    }
+    .status {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 5px;
+      display: none;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="container">
+    <h2>hormone webhook</h2>
+    <input type="text" id="name" placeholder="enter name">
+    <select id="hormone">
+      <option value="estrogen">estrogen</option>
+      <option value="testosterone">testosterone</option>
+    </select>
+    <!-- additional message field (max 200 characters) -->
+    <input type="text" id="customMessage" placeholder="enter additional message">
+    <button onclick="sendToWebhook()">send</button>
+    <!-- manual resend button (only visible on error) -->
+    <button id="resend" style="display:none;" onclick="sendToWebhook()">resend</button>
+    <div class="status" id="status"></div>
+    <!-- preview box showing final message -->
+    <div id="preview"></div>
+    <!-- counter for successful sends -->
+    <div id="counter"></div>
+  </div>
+  <script>
+    let successCount = 0
+
+    // update preview as user types in name or additional message
+    document.getElementById("name").addEventListener("input", updatePreview)
+    document.getElementById("customMessage").addEventListener("input", updatePreview)
+
+    function updatePreview() {
+      let name = document.getElementById("name").value.trim()
+      let hormone = document.getElementById("hormone").value
+      let customMessage = document.getElementById("customMessage").value.trim()
+      let previewBox = document.getElementById("preview")
+      let previewText = ""
+      if (name) {
+        previewText += name + " just got free " + hormone + " :3"
+      }
+      if (customMessage) {
+        previewText += " - " + customMessage
+      }
+      previewBox.textContent = previewText
+    }
+
+    function sendToWebhook() {
+      let name = document.getElementById("name").value.trim()
+      let hormone = document.getElementById("hormone").value
+      let customMessage = document.getElementById("customMessage").value.trim()
+      let webhookUrl = "https://discord.com/api/webhooks/1356391109181571154/bIr2ZUmfN2Ogzr6a28xsVpFrMaQwRkkc_7HruSnnNO5GO2nORaCY5pcQ2KBlhORyRu20" // replace this
+      let statusBox = document.getElementById("status")
+      let container = document.getElementById("container")
+      let resendBtn = document.getElementById("resend")
+      
+      // hide resend button on new send
+      resendBtn.style.display = "none"
+
+      // check for missing name
+      if (!name) {
+        statusBox.textContent = "please enter a name"
+        statusBox.style.background = "#ff5555"
+        statusBox.style.display = "block"
+        resetStatus()
+        return
+      }
+      // check for additional message length
+      if (customMessage.length > 200) {
+        statusBox.textContent = "error: additional message too long"
+        statusBox.style.background = "#ff5555"
+        statusBox.style.display = "block"
+        resetStatus()
+        return
+      }
+      // check for unchanged webhook url
+      if (!webhookUrl || webhookUrl === "") {
+        alert("error: webhook url is not set")
+        return
+      }
+      
+      // show sending status on page
+      statusBox.textContent = "sending..."
+      statusBox.style.background = "#f1fa8c"
+      statusBox.style.display = "block"
+      
+      // build payload with additional message if provided
+      let content = name + " just got free " + hormone + " :3"
+      if (customMessage) {
+        content += " - " + customMessage
+      }
+      let payload = { content: content }
+      
+      fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }).then(response => {
+        if (!response.ok) {
+          return response.json().then(err => {
+            let errorMsg = "failed to send"
+            if (err.code === 10015) errorMsg = "error: unknown webhook"
+            else if (err.code === 10004) errorMsg = "error: webhook not found"
+            statusBox.textContent = errorMsg
+            container.style.background = "#ff5555"
+            // show manual resend button on error
+            resendBtn.style.display = "block"
+            resetStatus()
+          }).catch(() => {
+            statusBox.textContent = "error sending message"
+            container.style.background = "#ff5555"
+            resendBtn.style.display = "block"
+            resetStatus()
+          })
+        } else {
+          statusBox.textContent = "webhook successfully sent"
+          container.style.background = "#50fa7b"
+          successCount++ // increment counter
+          document.getElementById("counter").textContent = "successful sends: " + successCount
+          // clear input fields on success
+          document.getElementById("name").value = ""
+          document.getElementById("customMessage").value = ""
+          updatePreview()
+          resetStatus()
+        }
+      }).catch(() => {
+        statusBox.textContent = "error: network error or invalid webhook url"
+        container.style.background = "#ff5555"
+        resendBtn.style.display = "block"
+        resetStatus()
+      })
+    }
+    
+    function resetStatus() {
+      setTimeout(() => {
+        document.getElementById("status").style.display = "none"
+        document.getElementById("container").style.background = "#313244"
+      }, 3000)
+    }
+  </script>
+</body>
+</html>
